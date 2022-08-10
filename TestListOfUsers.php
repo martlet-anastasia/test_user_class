@@ -1,5 +1,7 @@
 <?php
-
+    /**
+     * PHP code to test listOfUsers work
+     */
     require_once 'User.php';
     require_once 'listOfUsers.php';
 

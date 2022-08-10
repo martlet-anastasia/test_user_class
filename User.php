@@ -1,6 +1,13 @@
 <?php
     require_once 'Database.php';
 
+    /**
+     * Class User
+     * Implements functions to work with User entity:
+     * - create/delete new user,
+     * - get user's info from DB,
+     * - format user to get new StdClass with formatted age and gender
+     */
     class User
     {
         public $firstName;
@@ -10,6 +17,7 @@
         public $country;
         private $id;
 
+        public $database;
         public $conn;
 
         const GENDER = [
@@ -17,6 +25,12 @@
             '1' => 'female'
         ];
 
+        /**
+         * @param $idOrArray
+         * If `id` of the user is used then function gets all User data from DB.
+         * In case array is passed for new user creation - new DB entry is created.
+         * Validation step is enable for passed array with user's data
+         */
         public function __construct($idOrArray)
         {
             $this->database = new Database();
@@ -33,7 +47,6 @@
                     $this->gender = $user['gender'];
                     $this->country = $user['country'];
                 }
-
             } else if (is_array($idOrArray)) {
                 // Validation
                 if (is_string($idOrArray['firstName']) && preg_match('/^[a-zA-Z]+$/', $idOrArray['firstName'])) {
@@ -75,12 +88,17 @@
             }
         }
 
+        /**
+         * @param int $id
+         * @return mixed|void
+         */
         protected function getUserById(int $id)
         {
-            $query = $this->conn->prepare('SELECT * FROM `users` WHERE id = ?');
+            $query = $this->conn->prepare("SELECT * FROM `users` WHERE id = ?");
             $query->bind_param('i', $id);
             $query->execute();
             $result = $query->get_result();
+
             if ($result->num_rows > 0) {
                 $userData = [];
                 while ($row = $result->fetch_assoc()) {
@@ -92,15 +110,16 @@
             }
         }
 
+        /**
+         * @return int|string|void
+         */
         protected function save()
         {
-            // Create SQL
-            $query = $this->conn->prepare('INSERT INTO `users` '
-                . '(firstName, lastName, birthDate, gender, country) VALUES (?, ?, ?, ?, ?)');
+            $query = $this->conn->prepare("INSERT INTO `users` (firstName, lastName, birthDate, gender, country) "
+                                                . "VALUES (?, ?, ?, ?, ?)");
             $query->bind_param('sssis', $this->firstName, $this->lastName, $this->birthDate, $this->gender, $this->country);
-
-            // Execute
             $query->execute();
+
             if ($this->conn->affected_rows > 0) {
                 return $this->conn->insert_id;
             } else {
@@ -108,17 +127,42 @@
             }
         }
 
+
+        /**
+         * @return bool|void
+         */
         public function deleteUser()
         {
-            $query = $this->conn->prepare('DELETE FROM `users` WHERE id = ?');
+            $query = $this->conn->prepare("DELETE FROM `users` WHERE id = ?");
             $query->bind_param('i', $this->id);
             $query->execute();
 
             if ($this->conn->affected_rows === 0) {
                 die('Error deleting user');
             }
+            else {
+                return true;
+            }
         }
 
+        /**
+         * @return StdClass
+         */
+        public function formatUser()
+        {
+            $newUser = new StdClass();
+            $newUser->firstName = $this->firstName;
+            $newUser->lastName = $this->lastName;
+            $newUser->birthDate = self::birthDateToAge($this->birthDate);
+            $newUser->gender = self::genderToString($this->gender);
+            $newUser->country = $this->country;
+            return $newUser;
+        }
+
+        /**
+         * @param string $birthDate
+         * @return int
+         */
         public static function birthDateToAge(string $birthDate)
         {
             $birthDateUpd = DateTime::createFromFormat('Y-m-d', $birthDate);
@@ -131,20 +175,13 @@
             }
         }
 
+        /**
+         * @param bool $gender
+         * @return string
+         */
         public static function genderToString(bool $gender)
         {
             return self::GENDER[$gender];
         }
-
-        public function formatUser()
-        {
-            $newUser = new StdClass();
-            $newUser->firstName = $this->firstName;
-            $newUser->lastName = $this->lastName;
-            $newUser->birthDate = self::birthDateToAge($this->birthDate);
-            $newUser->gender = self::genderToString($this->gender);
-            $newUser->country = $this->country;
-
-            return $newUser;
-        }
     }
+
